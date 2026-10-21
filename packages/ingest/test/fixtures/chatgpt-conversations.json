@@ -1,0 +1,75 @@
+[
+  {
+    "title": "RAG chunking strategies",
+    "create_time": 1767225600.0,
+    "update_time": 1767229200.0,
+    "conversation_id": "6f1d2c3b-aaaa-bbbb-cccc-000000000001",
+    "current_node": "n6",
+    "mapping": {
+      "root": { "id": "root", "message": null, "parent": null, "children": ["n0"] },
+      "n0": {
+        "id": "n0", "parent": "root", "children": ["n1a", "n1b"],
+        "message": { "id": "n0", "author": { "role": "system" }, "create_time": null,
+          "content": { "content_type": "text", "parts": [""] },
+          "metadata": { "is_visually_hidden_from_conversation": true } }
+      },
+      "n1a": {
+        "id": "n1a", "parent": "n0", "children": ["n2a"],
+        "message": { "id": "n1a", "author": { "role": "user" }, "create_time": 1767225601.0,
+          "content": { "content_type": "text", "parts": ["How big should chunks be?"] }, "metadata": {} }
+      },
+      "n2a": {
+        "id": "n2a", "parent": "n1a", "children": [],
+        "message": { "id": "n2a", "author": { "role": "assistant" }, "create_time": 1767225602.0,
+          "content": { "content_type": "text", "parts": ["It depends."] }, "metadata": { "model_slug": "gpt-4o" } }
+      },
+      "n1b": {
+        "id": "n1b", "parent": "n0", "children": ["n2b"],
+        "message": { "id": "n1b", "author": { "role": "user" }, "create_time": 1767225700.0,
+          "content": { "content_type": "multimodal_text", "parts": [
+            { "content_type": "image_asset_pointer", "asset_pointer": "file-service://file-abc" },
+            "How big should chunks be for papers like this one?"
+          ] }, "metadata": {} }
+      },
+      "n2b": {
+        "id": "n2b", "parent": "n1b", "children": ["n3"],
+        "message": { "id": "n2b", "author": { "role": "assistant" }, "create_time": 1767225701.0,
+          "content": { "content_type": "thoughts", "thoughts": [{ "summary": "thinking", "content": "hidden" }] },
+          "metadata": { "model_slug": "o3" } }
+      },
+      "n3": {
+        "id": "n3", "parent": "n2b", "children": ["n4"],
+        "message": { "id": "n3", "author": { "role": "assistant" }, "create_time": 1767225702.0,
+          "content": { "content_type": "text", "parts": ["For academic papers, chunk by section and keep 300 to 800 tokens per chunk. Overlap by one sentence."] },
+          "metadata": { "model_slug": "o3" } }
+      },
+      "n4": {
+        "id": "n4", "parent": "n3", "children": ["n5"],
+        "message": { "id": "n4", "author": { "role": "assistant" }, "create_time": 1767225703.0, "recipient": "python",
+          "content": { "content_type": "code", "language": "python", "text": "print(len(chunks))" },
+          "metadata": { "model_slug": "o3" } }
+      },
+      "n5": {
+        "id": "n5", "parent": "n4", "children": ["n6"],
+        "message": { "id": "n5", "author": { "role": "tool", "name": "python" }, "create_time": 1767225704.0,
+          "content": { "content_type": "execution_output", "text": "42" }, "metadata": {} }
+      },
+      "n6": {
+        "id": "n6", "parent": "n5", "children": [],
+        "message": { "id": "n6", "author": { "role": "user" }, "create_time": 1767225800.0,
+          "content": { "content_type": "text", "parts": ["Thanks, that works."] }, "metadata": {} }
+      }
+    }
+  },
+  {
+    "title": "Empty chat",
+    "create_time": 1767225600.0,
+    "id": "6f1d2c3b-aaaa-bbbb-cccc-000000000002",
+    "current_node": "x1",
+    "mapping": {
+      "x0": { "id": "x0", "message": null, "parent": null, "children": ["x1"] },
+      "x1": { "id": "x1", "parent": "x0", "children": [],
+        "message": { "id": "x1", "author": { "role": "system" }, "content": { "content_type": "text", "parts": ["sys"] }, "metadata": {} } }
+    }
+  }
+]

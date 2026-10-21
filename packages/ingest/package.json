@@ -1,0 +1,41 @@
+{
+  "name": "@lineage/ingest",
+  "version": "0.1.0",
+  "description": "Normalize research artifacts (Markdown, ChatGPT and Claude exports, PDFs, codebases) into Lineage docs.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "lineage-ingest": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lineage/core": "workspace:*",
+    "@vscode/tree-sitter-wasm": "0.3.1",
+    "fflate": "^0.8.2",
+    "unpdf": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "pdf-lib": "^1.17.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  }
+}

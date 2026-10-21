@@ -72,8 +72,12 @@ export function parseProse(text: string, title?: string): Doc {
   return doc;
 }
 
-/** Render a doc back to Markdown-ish text. `parseProse(renderDoc(d))` round-trips prose docs. */
+/**
+ * Render a doc back to text. Prose round-trips through `parseProse`; code units are contiguous
+ * slices of the original file, so code renders back byte for byte.
+ */
 export function renderDoc(doc: Doc): string {
+  if (doc.kind === 'code') return doc.units.map((u) => u.text).join('');
   return doc.units
     .map((u) => {
       if (u.type === 'turn') return `**${String(u.meta?.['role'] ?? 'unknown')}:** ${u.text}`;

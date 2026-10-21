@@ -44,3 +44,10 @@ describe('text utilities', () => {
     expect(similarity('the cat sat on the mat', 'quantum chromodynamics lattice results')).toBeLessThan(0.2);
   });
 });
+
+describe('renderDoc for code', () => {
+  it('concatenates units exactly', () => {
+    const doc = { kind: 'code' as const, units: [{ type: 'line' as const, text: 'a = 1\n\n' }, { type: 'line' as const, text: 'b = 2\n' }] };
+    expect(renderDoc(doc)).toBe('a = 1\n\nb = 2\n');
+  });
+});
