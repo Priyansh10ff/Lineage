@@ -4,7 +4,21 @@
 
 Research lives across Google Docs, PDF folders, repos and dozens of ChatGPT/Claude conversations that never get saved anywhere durable. There's no shared history, no diff, no branching, and no way for several people to work on the same body of knowledge without overwriting each other. Git solved this for code. Lineage applies the same model to research.
 
-> Status: **Phase 2 of 6 done.** The versioning engine (`@lineage/core`) and ingestion (`@lineage/ingest`) are complete and tested. The web app, real-time editing and retrieval are next. See [Roadmap](#roadmap).
+> Status: **Phase 3 of 6 done.** The versioning engine, ingestion and the web app work end to end on a local, file-backed store. Real-time editing, the hosted database and retrieval are next. See [Roadmap](#roadmap).
+
+![Workspace map: branches drawn as transit lines, the latest change as a semantic diff](docs/screenshots/map.png)
+
+## Run it
+
+```bash
+pnpm install
+pnpm build
+pnpm dev          # http://localhost:3000
+```
+
+Click **Load demo workspace** for a small sleep study: a paper, a PDF, two imported AI chats, a Python script, a merged branch, and an agent branch with a real conflict waiting for review. Switch between Priyansh, Alice and Bob from the header to try concurrent work.
+
+Data lives in `apps/web/.lineage/` (override with `LINEAGE_DATA_DIR`). Requires Node 22+ and pnpm 10.
 
 ## How it works
 
@@ -57,7 +71,7 @@ node packages/ingest/dist/cli.js path/to/conversations.json paper.pdf ./some-rep
 chatgpt          5 units  chats/chatgpt/rag-chunking-strategies-6f1d2c3b.chat  "RAG chunking strategies"
 claude           3 units  chats/claude/sleep-study-design-0a9b8c7d.chat  "Sleep study design"
 code            10 units  some-repo/src/greeter.ts
-pdf             33 units  papers/paper.pdf  "Hackathon Problem Statement Git for Research"
+pdf             33 units  papers/paper.pdf  "Sleep and Memory Consolidation"
 ```
 
 ### 3. Content-addressed storage (git's model)
@@ -98,9 +112,31 @@ Edited paragraph in "2. Methods, p.2" (1 sentence changed)
 
 - **Merge base**: best common ancestor from the commit graph
 - **Per file**: decided by hash where possible (no content loaded), otherwise by a unit-level `diff3`
-- **Dig-in**: when both sides edited the *same paragraph* but *different sentences*, it's merged automatically at sentence level. Edits to adjacent paragraphs merge cleanly too.
+- **Dig-in**: when both sides edited the *same paragraph* but *different sentences*, it's merged automatically at sentence level. Edits to adjacent paragraphs merge cleanly too, and a conflict covers only the paragraphs that actually clash.
 - **Conflicts** are returned as a `MergeDraft`, plain JSON that a UI can render and send back. Each region can be resolved with `ours`, `theirs`, `base`, `ours-then-theirs`, `theirs-then-ours`, or hand-written units.
 - Handles delete-vs-modify and add/add conflicts. Completing a merge fails if the target branch moved in the meantime.
+
+### 6. The web app
+
+Branches are drawn as a transit map: each line of work is a track, commits are stations, merges are interchanges, and agent branches are dotted until a human merges them.
+
+| Screen | What it does |
+|---|---|
+| **Workspaces** | Every workspace as a card with a thumbnail of its map and how much is new since your last visit |
+| **Map** | The branch map, files grouped by type, the latest change as a semantic diff, "since your last stop", lines waiting to merge, new branch |
+| **File** | Documents, chats (turn by turn, with edited-message notes), PDFs (by page) and code (by symbol), plus "this file's stops" to open any earlier version |
+| **Edit** | Markdown editor that commits with compare-and-swap: if someone committed first, the save is refused instead of overwriting them |
+| **History** | Full map with a selected stop: parents, files changed with summaries, the workspace as of that stop, branch from here |
+| **Compare** | Any two stops (or "since my last visit", or two branches): files changed, stops in between, sentence- and word-level diffs |
+| **Merges** | Preview a merge without committing, fast-forward when possible, resolve each conflict as keep one side, keep both, or write your own |
+| **Import** | Upload files or zips, review what each became (one ChatGPT export → many chats), then commit to a branch |
+
+| | |
+|---|---|
+| ![Merge with a conflict between Alice and the agent](docs/screenshots/merge.png) | ![Compare two stops](docs/screenshots/compare.png) |
+| ![A ChatGPT export, turn by turn](docs/screenshots/chat.png) | ![History with a selected interchange](docs/screenshots/history.png) |
+
+Users are mocked (a switcher in the header) until real auth lands with the hosted database. Live presence and co-editing come with phase 4.
 
 ### Why CRDT *and* 3-way merge?
 
@@ -138,23 +174,25 @@ Revisions accept a branch name, a full commit hash, or `rev~N`.
 
 ```
 packages/
-  core/      versioning engine: objects, refs, diff, merge (done)
-  ingest/    parsers for Markdown, ChatGPT/Claude exports, PDF, code, zips, directories (done)
+  core/       versioning engine: objects, refs, diff, merge, transit-map layout
+  ingest/     parsers for Markdown, ChatGPT/Claude exports, PDF, code, zips, directories
+  store-fs/   file-backed store: objects on disk, refs with compare-and-swap, workspace registry
 apps/
-  web/       Next.js app: workspace, history, diff and conflict views
-  sync/      Hocuspocus (Yjs) server for live editing
+  web/        Next.js 16 app (App Router, server actions, Tailwind v4)
+  sync/       Hocuspocus (Yjs) server for live editing (phase 4)
 ```
+
+The store is an interface (`ObjectStore` + `RefStore`). `MemoryStore` serves tests, `FileStore` serves local use, and a Postgres store will slot in for multi-user hosting without touching the app.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm test        # vitest
+pnpm test        # vitest across packages
 pnpm typecheck
 pnpm build
+pnpm dev         # web app with hot reload
 ```
-
-Requires Node 22+ and pnpm 10.
 
 ## Roadmap
 
@@ -162,16 +200,17 @@ Requires Node 22+ and pnpm 10.
 |---|---|---|
 | 1 | Core engine: content-addressed objects, commits, branches, semantic diff, 3-way merge | Done |
 | 2 | Ingestion: Markdown, ChatGPT `conversations.json`, Claude export, PDF, code (tree-sitter), zips, directories | Done |
-| 3 | Postgres store (Supabase) + web UI: workspace, file tree, history, diff view | Next |
-| 4 | Real-time editing (Yjs + Hocuspocus), presence, per-user "last seen" | Planned |
+| 3 | Web app on a file-backed store: workspaces, transit map, file views, history, compare, merge with conflict resolution, import | Done |
+| 4 | Real-time editing (Yjs + Hocuspocus), live presence, hosted Postgres store, real auth | Next |
 | 5 | Retrieval: hybrid search (full-text + pgvector), chat with citations, time-travel queries | Planned |
-| 6 | Conflict resolution UI, blame/provenance, agent branches with human review | Planned |
+| 6 | Blame and provenance, agent branches that open their own merge requests | Planned |
 
 ## Known limitations
 
 - Criss-cross histories with several merge bases use the newest base instead of a recursive virtual base.
 - Merge is unit- and sentence-level. It doesn't detect that two differently worded sentences make the same claim.
-- The in-memory store is for tests and local use. The Postgres store comes in phase 3.
+- The file store coordinates writers within one server process. Several processes writing the same data folder need the Postgres store.
+- Very long histories scroll sideways on the map; collapsing quiet stretches of a line is not implemented yet.
 - PDF tables come out as run-together text, and scanned PDFs (no text layer) are reported, not OCR'd.
 - Only the visible branch of a ChatGPT conversation is imported. Alternate versions are counted, not stored.
 

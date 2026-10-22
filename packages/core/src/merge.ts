@@ -101,26 +101,33 @@ function mergeUnitPair(base: Unit, ours: Unit, theirs: Unit): Unit | null {
   return meta ? { type: ours.type, text, meta } : { type: ours.type, text };
 }
 
+type Slot = { ok: Unit } | { conflict: { base: Unit; ours: Unit; theirs: Unit } };
+
 /**
- * Try to resolve a conflicting region automatically: if all three sides have the same number
- * of units, merge slot by slot, falling back to sentence-level merge inside a slot.
+ * Try to resolve a conflicting region slot by slot when all three sides have the same number
+ * of units: slots changed on one side take that side, slots changed on both try a sentence-level
+ * merge, and only slots that still clash stay conflicts. This keeps a conflict as small as the
+ * actual clash instead of swallowing neighbouring paragraphs that only one side touched.
  */
-function digIn(base: Unit[], ours: Unit[], theirs: Unit[]): { units: Unit[]; auto: number } | null {
+function digIn(base: Unit[], ours: Unit[], theirs: Unit[]): { slots: Slot[]; auto: number } | null {
   if (!base.length || base.length !== ours.length || base.length !== theirs.length) return null;
-  const units: Unit[] = [];
+  const slots: Slot[] = [];
   let auto = 0;
   for (let i = 0; i < base.length; i++) {
-    const slot = pick([base[i]!], [ours[i]!], [theirs[i]!], sameKeys);
-    if (slot) {
-      units.push(...slot);
+    const picked = pick([base[i]!], [ours[i]!], [theirs[i]!], sameKeys);
+    if (picked) {
+      slots.push({ ok: picked[0]! });
       continue;
     }
     const merged = mergeUnitPair(base[i]!, ours[i]!, theirs[i]!);
-    if (!merged) return null;
-    units.push(merged);
-    auto++;
+    if (merged) {
+      slots.push({ ok: merged });
+      auto++;
+    } else {
+      slots.push({ conflict: { base: base[i]!, ours: ours[i]!, theirs: theirs[i]! } });
+    }
   }
-  return { units, auto };
+  return { slots, auto };
 }
 
 /** Unit-level diff3 with automatic sentence-level resolution. Adjacent ok regions are coalesced. */
@@ -156,7 +163,14 @@ export function mergeUnits(
     const dug = digIn(o, a, b);
     if (dug) {
       autoResolved += dug.auto;
-      pushOk(dug.units);
+      for (const slot of dug.slots) {
+        if ('ok' in slot) pushOk([slot.ok]);
+        else {
+          conflicts++;
+          const { base: sb, ours: so, theirs: st } = slot.conflict;
+          regions.push({ type: 'conflict', id: `c${conflicts}`, base: [sb], ours: [so], theirs: [st] });
+        }
+      }
       continue;
     }
     conflicts++;

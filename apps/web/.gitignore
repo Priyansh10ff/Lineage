@@ -1,0 +1,4 @@
+.next
+.lineage
+next-env.d.ts
+*.tsbuildinfo

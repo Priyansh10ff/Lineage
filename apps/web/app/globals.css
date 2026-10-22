@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/* Overpass's middle dot sits flush against the following word. Borrow the "·" from a system
+   sans so "a · b" separators are evenly spaced. Falls through to Overpass if none exist. */
+@font-face {
+  font-family: 'Lineage Dot';
+  src: local('Segoe UI'), local('Helvetica Neue'), local('Helvetica'), local('Arial'), local('DejaVu Sans'), local('Liberation Sans');
+  unicode-range: U+00B7;
+}
+
+@theme {
+  --font-sans: 'Lineage Dot', 'Overpass', system-ui, sans-serif;
+  --font-mono: 'Overpass Mono', ui-monospace, monospace;
+
+  --color-paper: #fafaf7;
+  --color-panel: #f1f2ee;
+  --color-ink: #17181c;
+  --color-muted: #5d6069;
+  --color-rule: #d4d6dd;
+  --color-header-muted: #b9bbc4;
+
+  --color-line-main: #1f4fd1;
+  --color-line-main-tint: #e9ecf7;
+
+  /* Diff: removed = warm, added = blue (distinct in hue and lightness). */
+  --color-del-bg: #fbe0cc;
+  --color-del-fg: #7a3300;
+  --color-ins-bg: #dce6fa;
+  --color-ins-fg: #15389a;
+
+  --color-warn-bg: #fff1df;
+  --color-warn-fg: #8a3a00;
+  --color-agent: #0f7a5c;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  a {
+    color: var(--color-line-main);
+  }
+  a:hover {
+    color: #163a9e;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-line-main);
+    outline-offset: 2px;
+  }
+  button,
+  select,
+  input,
+  textarea {
+    font: inherit;
+  }
+}
+
+@utility eyebrow {
+  @apply text-[13px] font-extrabold tracking-[0.08em] uppercase;
+}
+@utility btn {
+  @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded px-4 font-bold no-underline disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-ink {
+  @apply btn bg-ink text-paper hover:bg-[#2b2d33] hover:text-paper;
+}
+@utility btn-line {
+  @apply btn border-2 border-ink bg-transparent text-ink hover:bg-panel hover:text-ink;
+}
+@utility btn-agent {
+  @apply btn bg-agent text-paper hover:bg-[#0b5a44] hover:text-paper;
+}
+@utility field {
+  @apply min-h-11 rounded border-2 border-ink bg-white px-3;
+}
+@utility sign {
+  @apply inline-block rounded-[3px] px-2 py-[2px] text-center text-xs font-extrabold tracking-[0.08em];
+}
+@utility card {
+  @apply rounded-md border-2 border-ink;
+}
+
+@layer components {
+  del.diff {
+    @apply bg-del-bg px-[3px] text-del-fg;
+  }
+  ins.diff {
+    @apply bg-ins-bg px-[3px] text-ins-fg no-underline;
+  }
+}

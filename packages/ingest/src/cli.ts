@@ -18,7 +18,14 @@ if (!inputs.length) {
 
 const all: IngestResult = { artifacts: [], warnings: [] };
 for (const input of inputs) {
-  const r = (await stat(input)).isDirectory() ? await ingestDirectory(input) : await ingestFile(input);
+  let isDir: boolean;
+  try {
+    isDir = (await stat(input)).isDirectory();
+  } catch {
+    all.warnings.push(`${input}: no such file or directory`);
+    continue;
+  }
+  const r = isDir ? await ingestDirectory(input) : await ingestFile(input);
   all.artifacts.push(...r.artifacts);
   all.warnings.push(...r.warnings);
 }
@@ -33,3 +40,4 @@ if (json) {
   for (const w of all.warnings) console.warn(`warning: ${w}`);
   console.log(`\n${all.artifacts.length} artifact(s)`);
 }
+if (!all.artifacts.length) process.exitCode = 1;

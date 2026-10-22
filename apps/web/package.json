@@ -1,0 +1,32 @@
+{
+  "name": "@lineage/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/overpass": "^5.2.0",
+    "@fontsource/overpass-mono": "^5.2.0",
+    "@lineage/core": "workspace:*",
+    "@lineage/ingest": "workspace:*",
+    "@lineage/store-fs": "workspace:*",
+    "@vscode/tree-sitter-wasm": "0.3.1",
+    "next": "16.4.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,4 +1,5 @@
 import { diffDocs, diffTreeEntries, type DocDiff, type FileChange } from './diff.js';
+import { layoutGraph, type BranchGraph } from './graph.js';
 import {
   InvalidRefNameError,
   LineageError,
@@ -58,6 +59,10 @@ export interface MergeDraft {
   conflicts: Record<string, ConflictedFile>;
   autoMerged: string[];
 }
+
+export type MergePreview =
+  | { status: 'up-to-date'; head: Hash }
+  | { status: 'ready'; draft: MergeDraft; canFastForward: boolean };
 
 export type MergeOutcome =
   | { status: 'up-to-date'; head: Hash }
@@ -343,6 +348,21 @@ export class Repository {
     return best[0]!.hash;
   }
 
+  /** Every commit reachable from any branch, laid out as a transit map. */
+  async graph(primary = 'main'): Promise<BranchGraph> {
+    const branches = await this.branches();
+    const commits = new Map<Hash, CommitObject>();
+    const stack = Object.values(branches);
+    while (stack.length) {
+      const h = stack.pop()!;
+      if (commits.has(h)) continue;
+      const c = await this.readCommit(h);
+      commits.set(h, c);
+      stack.push(...c.parents);
+    }
+    return layoutGraph(commits, branches, primary);
+  }
+
   // ---------------------------------------------------------------- diff
 
   /** Semantic diff of every changed file between two revisions. `from = null` diffs against an empty tree. */
@@ -369,26 +389,16 @@ export class Repository {
   // ---------------------------------------------------------------- merge
 
   /**
-   * Merge `from` into branch `into`. Fast-forwards when possible; otherwise does a 3-way merge
-   * per file. Clean merges are committed immediately. Conflicts return a {@link MergeDraft}
-   * to resolve with {@link completeMerge}.
+   * Work out what merging `from` into branch `into` would do, without moving any ref.
+   * Auto-merged blobs are written (content-addressed, so harmless if the merge is abandoned).
    */
-  async merge(input: {
-    into: string;
-    from: string;
-    author: Author;
-    message?: string;
-    noFastForward?: boolean;
-  }): Promise<MergeOutcome> {
+  async previewMerge(input: { into: string; from: string; message?: string }): Promise<MergePreview> {
     const ours = await this.resolve(input.into);
     const theirs = await this.resolve(input.from);
     const message = input.message ?? `Merge ${input.from} into ${input.into}`;
 
     if (await this.isAncestor(theirs, ours)) return { status: 'up-to-date', head: ours };
-    if (!input.noFastForward && (await this.isAncestor(ours, theirs))) {
-      await this.store.setRef(HEADS + input.into, theirs, ours);
-      return { status: 'fast-forward', head: theirs };
-    }
+    const canFastForward = await this.isAncestor(ours, theirs);
 
     const base = await this.mergeBase(ours, theirs);
     const baseEntries = base ? (await this.readTree((await this.readCommit(base)).tree)).entries : {};
@@ -431,9 +441,37 @@ export class Repository {
     }
 
     const draft: MergeDraft = { into: input.into, oursHead: ours, theirsHead: theirs, base, message, tree, conflicts, autoMerged };
-    if (Object.keys(conflicts).length) return { status: 'conflicts', draft };
-    const head = await this.writeMergeCommit(draft, tree, input.author);
-    return { status: 'merged', head, autoMerged };
+    return { status: 'ready', draft, canFastForward };
+  }
+
+  /**
+   * Merge `from` into branch `into`. Fast-forwards when possible; otherwise does a 3-way merge
+   * per file. Clean merges are committed immediately. Conflicts return a {@link MergeDraft}
+   * to resolve with {@link completeMerge}.
+   */
+  async merge(input: {
+    into: string;
+    from: string;
+    author: Author;
+    message?: string;
+    noFastForward?: boolean;
+  }): Promise<MergeOutcome> {
+    const preview = await this.previewMerge(input);
+    if (preview.status === 'up-to-date') return preview;
+    const { draft } = preview;
+    if (preview.canFastForward && !input.noFastForward) {
+      await this.store.setRef(HEADS + input.into, draft.theirsHead, draft.oursHead);
+      return { status: 'fast-forward', head: draft.theirsHead };
+    }
+    if (Object.keys(draft.conflicts).length) return { status: 'conflicts', draft };
+    const head = await this.writeMergeCommit(draft, draft.tree, input.author);
+    return { status: 'merged', head, autoMerged: draft.autoMerged };
+  }
+
+  /** Move `into` forward to `draft.theirsHead` (only valid when the preview said it can fast-forward). */
+  async fastForward(draft: MergeDraft): Promise<Hash> {
+    await this.store.setRef(HEADS + draft.into, draft.theirsHead, draft.oursHead);
+    return draft.theirsHead;
   }
 
   /**

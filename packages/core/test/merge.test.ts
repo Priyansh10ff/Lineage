@@ -113,3 +113,20 @@ describe('mergeDocs', () => {
     expect(r.status).toBe('conflict');
   });
 });
+
+describe('conflict granularity', () => {
+  it('keeps a conflict to the clashing paragraph when a neighbour changed on one side only', () => {
+    const b = md('Intro.\n\nResult one stays.\n\nRetention was flat.');
+    const o = md('Intro.\n\nResult by 23%.\n\nRetention was flat for both word types.');
+    const t = md('Intro.\n\nPeople remembered more.\n\nRetention was flat.');
+    const r = mergeDocs(b, o, t);
+    if (r.status !== 'conflict') throw new Error('expected conflict');
+    const conflicts = r.regions.filter((x) => x.type === 'conflict');
+    expect(conflicts).toHaveLength(1);
+    const c = conflicts[0]!;
+    if (c.type !== 'conflict') throw new Error();
+    expect(c.ours.map((u) => u.text)).toEqual(['Result by 23%.']);
+    const out = applyResolution(r, { c1: 'theirs' });
+    expect(out.doc!.units.map((u) => u.text)).toEqual(['Intro.', 'People remembered more.', 'Retention was flat for both word types.']);
+  });
+});

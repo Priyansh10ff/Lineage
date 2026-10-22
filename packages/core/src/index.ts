@@ -29,6 +29,7 @@ export {
   type FileMergeResult,
   type MergeRegion,
 } from './merge.js';
+export { layoutGraph, type BranchGraph, type GraphEdge, type GraphLane, type GraphNode } from './graph.js';
 export {
   Repository,
   validateBranchName,
@@ -38,6 +39,7 @@ export {
   type LogEntry,
   type MergeDraft,
   type MergeOutcome,
+  type MergePreview,
   type RepositoryOptions,
   type TreeDiff,
 } from './repository.js';
