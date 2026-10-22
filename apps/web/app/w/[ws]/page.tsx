@@ -51,7 +51,7 @@ export default async function WorkspaceMap({ params, searchParams }: Props) {
     <>
       <Header user={user} returnTo={`/w/${slug}${qs({ b: bq })}`} workspace={ws.meta} active="map" branch={branch} />
 
-      <section aria-label="Branch map" className="border-b-2 border-ink px-6 pt-5 pb-2 md:px-10">
+      <section aria-label="Branch map" className="map-paper border-b-2 border-ink px-6 pt-5 pb-2 md:px-10">
         <div className="mb-2 flex flex-wrap items-center gap-x-6 gap-y-3">
           <span className="eyebrow">Lines</span>
           <LineLegend graph={graph} />

@@ -51,7 +51,7 @@ export default async function HistoryPage({ params, searchParams }: Props) {
         <BranchPicker branches={Object.keys(branches)} current={branch} action={`/w/${slug}/history`} />
       </div>
 
-      <section aria-label="Full map" className="mx-6 mt-3.5 flex flex-col gap-2 rounded-md border-2 border-ink px-4 pt-3 md:mx-10">
+      <section aria-label="Full map" className="map-paper mx-6 mt-3.5 flex flex-col gap-2 rounded-md border-2 border-ink px-4 pt-3 md:mx-10">
         <LineLegend graph={graph} />
         <TransitMap graph={graph} current={head} selected={sel} hrefFor={(h) => `/w/${slug}/history${qs({ b: bq, sel: h })}`} />
       </section>

@@ -42,8 +42,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
         {cards.length > 0 && (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-5">
             {cards.map(({ meta, graph, newSince, files, latest, authors }) => (
-              <Link key={meta.slug} href={`/w/${meta.slug}`} className="card flex flex-col overflow-hidden rounded-lg text-ink no-underline hover:text-ink hover:shadow-[4px_4px_0_#17181C]">
-                <div className="border-b-2 border-ink bg-panel px-2 pt-2">
+              <Link key={meta.slug} href={`/w/${meta.slug}`} className="card flex flex-col overflow-hidden rounded-lg bg-white text-ink no-underline hover:text-ink hover:shadow-[4px_4px_0_#17181C]">
+                <div className="map-paper border-b-2 border-ink px-2 pt-2">
                   <MiniMap graph={graph} />
                 </div>
                 <div className="flex flex-col gap-1.5 px-5 py-4">
@@ -65,7 +65,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Rec
           </div>
         )}
 
-        <section className="card flex flex-col gap-4 p-6">
+        <section className="card flex flex-col gap-4 bg-white p-6">
           <h2 className="m-0 text-xl font-extrabold">{cards.length ? 'New workspace' : 'Start your first workspace'}</h2>
           {!cards.length && (
             <p className="m-0 text-muted">

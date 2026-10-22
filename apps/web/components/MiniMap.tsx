@@ -36,7 +36,12 @@ export function MiniMap({ graph, width = 360, height = 112 }: { graph: BranchGra
           />
         );
       })}
-      {tip && <circle cx={x(tip.column)} cy={y(tip.row)} r={9} fill="#17181C" stroke="#F1F2EE" strokeWidth={4} />}
+      {graph.nodes
+        .filter((n) => n !== tip)
+        .map((n) => (
+          <circle key={n.hash} cx={x(n.column)} cy={y(n.row)} r={4.5} fill="#FFFFFF" stroke="#17181C" strokeWidth={2.5} />
+        ))}
+      {tip && <circle cx={x(tip.column)} cy={y(tip.row)} r={9} fill="#17181C" stroke="#E9EFFD" strokeWidth={4} />}
     </svg>
   );
 }

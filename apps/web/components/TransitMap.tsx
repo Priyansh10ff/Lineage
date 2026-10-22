@@ -107,17 +107,17 @@ export function TransitMap({ graph, hrefFor, current, selected, compact }: Props
                   width={26}
                   height={ic.bottom - ic.top + 26}
                   rx={13}
-                  fill={isCurrent ? '#17181C' : '#FAFAF7'}
+                  fill={isCurrent ? '#17181C' : '#FFFFFF'}
                   stroke="#17181C"
                   strokeWidth={4}
                 />
               ) : isCurrent ? (
                 <>
                   <circle cx={p.x} cy={p.y} r={14} fill="#17181C" />
-                  <circle cx={p.x} cy={p.y} r={8} fill="#17181C" stroke="#FAFAF7" strokeWidth={4} />
+                  <circle cx={p.x} cy={p.y} r={8} fill="#17181C" stroke="#E9EFFD" strokeWidth={4} />
                 </>
               ) : (
-                <circle cx={p.x} cy={p.y} r={9} fill="#FAFAF7" stroke="#17181C" strokeWidth={4} />
+                <circle cx={p.x} cy={p.y} r={9} fill="#FFFFFF" stroke="#17181C" strokeWidth={4} />
               )}
               <text
                 x={p.x}

@@ -2,6 +2,7 @@
  * Node-only helpers: tree-sitter grammars loaded from disk, and ingestion of files and directories
  * (e.g. a cloned git repository).
  */
+import { existsSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
@@ -15,18 +16,24 @@ const require = createRequire(import.meta.url);
 let defaultParser: CodeParser | undefined;
 
 /**
- * Where the grammar .wasm files live. Bundlers (Next.js/Turbopack) may rewrite
- * `require.resolve` to a module id, so fall back to the conventional node_modules path.
+ * Where the grammar .wasm files live. Bundlers (Next.js/Turbopack) rewrite `require.resolve`
+ * to module ids or virtual "[externals]" paths, so every candidate is checked on disk.
  */
 function defaultWasmDir(): string {
-  if (process.env['LINEAGE_TREE_SITTER_WASM_DIR']) return process.env['LINEAGE_TREE_SITTER_WASM_DIR'];
+  const candidates: string[] = [];
+  if (process.env['LINEAGE_TREE_SITTER_WASM_DIR']) candidates.push(process.env['LINEAGE_TREE_SITTER_WASM_DIR']);
   try {
     const pkg: unknown = require.resolve('@vscode/tree-sitter-wasm/package.json');
-    if (typeof pkg === 'string') return join(dirname(pkg), 'wasm');
+    if (typeof pkg === 'string') candidates.push(join(dirname(pkg), 'wasm'));
   } catch {
     // fall through
   }
-  return join(process.cwd(), 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm');
+  for (let dir = process.cwd(), i = 0; i < 4; i++, dir = dirname(dir)) {
+    candidates.push(join(dir, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm'));
+  }
+  const found = candidates.find((c) => existsSync(join(c, 'tree-sitter.wasm')));
+  if (!found) throw new Error(`Could not find @vscode/tree-sitter-wasm grammars. Looked in:\n${candidates.join('\n')}`);
+  return found;
 }
 
 /** Tree-sitter code parser using the grammars bundled in `@vscode/tree-sitter-wasm`. */

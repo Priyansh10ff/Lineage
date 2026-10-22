@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Repository, parseProse, type Doc } from '@lineage/core';
 import { createNodeCodeParser, ingest } from '@lineage/ingest/node';
+import type { Workspace } from '@lineage/store-fs';
 import { registry } from './data';
 import { AGENT, USERS, asAuthor } from './users';
 
@@ -58,6 +59,17 @@ if __name__ == "__main__":
 /** Build the "Sleep & Memory Study" demo: several authors, a merged branch, and an agent branch with a real conflict. */
 export async function createDemoWorkspace(): Promise<string> {
   const ws = await registry.create({ name: 'Sleep & Memory Study (demo)', author: priyansh });
+  try {
+    await seed(ws);
+  } catch (e) {
+    // Don't leave a half-built demo behind.
+    await registry.remove(ws.meta.slug);
+    throw e;
+  }
+  return ws.meta.slug;
+}
+
+async function seed(ws: Workspace): Promise<void> {
   // Spread the history over the last few days so the map and times read naturally.
   let t = Date.now() - 2 * 24 * 3600_000;
   const repo = new Repository(ws.store, { now: () => new Date((t += 2 * 3600_000 + Math.floor(Math.random() * 3600_000))) });
@@ -124,5 +136,4 @@ export async function createDemoWorkspace(): Promise<string> {
       ...(await docs('analysis.py', analysis(true))),
     },
   });
-  return ws.meta.slug;
 }
