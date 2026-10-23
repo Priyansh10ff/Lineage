@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { MockUser } from '@/lib/users';
 import { qs } from '@/lib/format';
+import { HeaderPeers } from './live/Peers';
 import { UserSwitcher } from './UserSwitcher';
 
 type Section = 'map' | 'history' | 'compare' | 'merge' | 'ask' | 'import';
@@ -59,6 +60,7 @@ export function Header({
         </nav>
       )}
       <div className="flex-1" />
+      {workspace && <HeaderPeers />}
       {workspace && (
         <Link
           href={`/w/${workspace.slug}/import${qs({ b })}`}

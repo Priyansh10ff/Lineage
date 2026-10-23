@@ -4,7 +4,7 @@
 
 Research lives across Google Docs, PDF folders, repos and dozens of ChatGPT/Claude conversations that never get saved anywhere durable. There's no shared history, no diff, no branching, and no way for several people to work on the same body of knowledge without overwriting each other. Git solved this for code. Lineage applies the same model to research.
 
-> Status: **Phase 3 of 6 done.** The versioning engine, ingestion and the web app work end to end on a local, file-backed store. Real-time editing, the hosted database and retrieval are next. See [Roadmap](#roadmap).
+> Status: **Phase 4 in progress.** The versioning engine, ingestion, the web app, live co-editing and presence work end to end on a local, file-backed store. The hosted database, real auth and retrieval are next. See [Roadmap](#roadmap).
 
 ![Workspace map: branches drawn as transit lines, the latest change as a semantic diff](docs/screenshots/map.png)
 
@@ -13,12 +13,21 @@ Research lives across Google Docs, PDF folders, repos and dozens of ChatGPT/Clau
 ```bash
 pnpm install
 pnpm build
-pnpm dev          # http://localhost:3000
+pnpm dev          # web app on http://localhost:3000, collaboration server on ws://localhost:1234
 ```
 
 Click **Load demo workspace** for a small sleep study: a paper, a PDF, two imported AI chats, a Python script, a merged branch, and an agent branch with a real conflict waiting for review. Switch between Priyansh, Alice and Bob from the header to try concurrent work.
 
-Data lives in `apps/web/.lineage/` (override with `LINEAGE_DATA_DIR`). Requires Node 22+ and pnpm 10.
+To see live editing, open the same file in two browsers (or a normal and a private window), sign in as different people, and click **Edit**.
+
+Requires Node 22+ and pnpm 10. Configuration, all optional for local use:
+
+| Variable | Used by | Default |
+|---|---|---|
+| `LINEAGE_DATA_DIR` | web, collab | `apps/web/.lineage` |
+| `LINEAGE_COLLAB_SECRET` | web, collab (same value) | a fixed dev secret; **required** when `NODE_ENV=production` |
+| `LINEAGE_COLLAB_URL` | web | `ws://<page host>:1234` |
+| `LINEAGE_COLLAB_PORT` | collab | `1234` |
 
 ## How it works
 
@@ -125,7 +134,7 @@ Branches are drawn as a transit map: each line of work is a track, commits are s
 | **Workspaces** | Every workspace as a card with a thumbnail of its map and how much is new since your last visit |
 | **Map** | The branch map, files grouped by type, the latest change as a semantic diff, "since your last stop", lines waiting to merge, new branch |
 | **File** | Documents, chats (turn by turn, with edited-message notes), PDFs (by page) and code (by symbol), plus "this file's stops" to open any earlier version |
-| **Edit** | Markdown editor that commits with compare-and-swap: if someone committed first, the save is refused instead of overwriting them |
+| **Edit** | A shared live draft: everyone on the same file and branch types into one document and sees each other's cursors. Commit when ready; if the branch moved meanwhile, the draft is merged with it |
 | **History** | Full map with a selected stop: parents, files changed with summaries, the workspace as of that stop, branch from here |
 | **Compare** | Any two stops (or "since my last visit", or two branches): files changed, stops in between, sentence- and word-level diffs |
 | **Merges** | Preview a merge without committing, fast-forward when possible, resolve each conflict as keep one side, keep both, or write your own |
@@ -136,11 +145,38 @@ Branches are drawn as a transit map: each line of work is a track, commits are s
 | ![Merge with a conflict between Alice and the agent](docs/screenshots/merge.png) | ![Compare two stops](docs/screenshots/compare.png) |
 | ![A ChatGPT export, turn by turn](docs/screenshots/chat.png) | ![History with a selected interchange](docs/screenshots/history.png) |
 
-Users are mocked (a switcher in the header) until real auth lands with the hosted database. Live presence and co-editing come with phase 4.
+Users are mocked (a switcher in the header) until real auth lands with the hosted database.
+
+### 7. Real time
+
+![Two people editing the same draft, with a live cursor and presence](docs/screenshots/live-edit.png)
+
+`apps/collab` is a [Hocuspocus](https://hocuspocus.dev) server (Yjs over WebSocket). Each browser tab opens one socket and joins two kinds of rooms over it:
+
+| Room | Holds |
+|---|---|
+| `ws:<workspace>` | Presence: who is here and what they're looking at (map, a file, a draft, a merge). Branch updates are pushed into this room. |
+| `draft:<workspace>:<branch>:<path>` | A shared working copy of one document: a `Y.Text` with the markdown, plus the commit it's based on |
+
+**Presence.** The header shows who else is in the workspace, the map legend shows who is on which line, and a file page says when someone is editing it, with a link to join.
+
+**Branch updates.** The collaboration server watches the workspace's refs (a file watcher plus a poll as a safety net). When a branch moves, from any commit, merge or import, every open tab gets the change with its author and message, shows a notice, and re-renders. Pages with a form in progress (edit, merge, import) ask before refreshing.
+
+**Drafts.**
+
+- **Seeding:** a draft starts from the branch head. A new path starts from a template.
+- **Persistence:** uncommitted text is kept on disk, so you can close the tab and come back. A draft that matches its branch again leaves nothing on disk.
+- **Branch moves:** when the branch moves and the draft has no edits of its own, the draft follows it. When it does have edits, the editor shows that the branch moved on.
+- **Committing:** a commit goes through the web app (with compare-and-swap) and merges with anything that landed since the draft's base. A real conflict offers to put the draft on its own line and resolve it on the merge page.
+- **Offline:** if the collaboration server is down, the editor falls back to a plain commit-on-submit form.
+
+**Identity.** The web app signs a short-lived token (HMAC-SHA256: user, workspace, expiry). The collaboration server checks it on every room, refuses other workspaces, and stamps presence with the token's identity so a client can't pose as someone else. With real auth only the signing side changes.
+
+**Writes stay in one place.** The collaboration server only reads the repository. Every commit, merge and import goes through the web app, so the file store's single-writer locking still holds. With the Postgres store, the ref watcher becomes `LISTEN/NOTIFY`.
 
 ### Why CRDT *and* 3-way merge?
 
-Live co-editing inside a branch will use Yjs (a CRDT): edits never conflict, which is what you want while typing together. Merging *branches* is different. If two lines of work rewrote the same claim, a human should decide. CRDTs would silently interleave the two versions, so branches go through an explicit 3-way merge that surfaces conflicts.
+Live co-editing inside a branch uses Yjs (a CRDT): edits never conflict, which is what you want while typing together. Merging *branches* is different. If two lines of work rewrote the same claim, a human should decide. CRDTs would silently interleave the two versions, so branches go through an explicit 3-way merge that surfaces conflicts. A draft that falls behind its branch is merged the same way when you commit it.
 
 ## Usage
 
@@ -177,9 +213,10 @@ packages/
   core/       versioning engine: objects, refs, diff, merge, transit-map layout
   ingest/     parsers for Markdown, ChatGPT/Claude exports, PDF, code, zips, directories
   store-fs/   file-backed store: objects on disk, refs with compare-and-swap, workspace registry
+  realtime/   shared protocol: room names, presence, server messages, signed tokens
 apps/
-  web/        Next.js 16 app (App Router, server actions, Tailwind v4)
-  sync/       Hocuspocus (Yjs) server for live editing (phase 4)
+  web/        Next.js 16 app (App Router, server actions, Tailwind v4, CodeMirror 6)
+  collab/     Hocuspocus (Yjs) server: shared drafts, presence, branch updates
 ```
 
 The store is an interface (`ObjectStore` + `RefStore`). `MemoryStore` serves tests, `FileStore` serves local use, and a Postgres store will slot in for multi-user hosting without touching the app.
@@ -191,8 +228,10 @@ pnpm install
 pnpm test        # vitest across packages
 pnpm typecheck
 pnpm build
-pnpm dev         # web app with hot reload
+pnpm dev         # web app and collaboration server, both with hot reload
 ```
+
+In production, run both: `pnpm --filter @lineage/web start` and `pnpm --filter @lineage/collab start`, with the same `LINEAGE_COLLAB_SECRET` and `LINEAGE_DATA_DIR`.
 
 ## Roadmap
 
@@ -201,7 +240,7 @@ pnpm dev         # web app with hot reload
 | 1 | Core engine: content-addressed objects, commits, branches, semantic diff, 3-way merge | Done |
 | 2 | Ingestion: Markdown, ChatGPT `conversations.json`, Claude export, PDF, code (tree-sitter), zips, directories | Done |
 | 3 | Web app on a file-backed store: workspaces, transit map, file views, history, compare, merge with conflict resolution, import | Done |
-| 4 | Real-time editing (Yjs + Hocuspocus), live presence, hosted Postgres store, real auth | Next |
+| 4 | Real-time editing (Yjs + Hocuspocus) and live presence: done. Hosted Postgres store and real auth: next | In progress |
 | 5 | Retrieval: hybrid search (full-text + pgvector), chat with citations, time-travel queries | Planned |
 | 6 | Blame and provenance, agent branches that open their own merge requests | Planned |
 
@@ -209,7 +248,9 @@ pnpm dev         # web app with hot reload
 
 - Criss-cross histories with several merge bases use the newest base instead of a recursive virtual base.
 - Merge is unit- and sentence-level. It doesn't detect that two differently worded sentences make the same claim.
-- The file store coordinates writers within one server process. Several processes writing the same data folder need the Postgres store.
+- The file store coordinates writers within one server process. Several web app processes writing the same data folder need the Postgres store. (The collaboration server only reads, so one web app plus one collaboration server is fine.)
+- Drafts have no history of their own between commits. Undo works per person within a session.
+- One collaboration server instance. Scaling out needs Hocuspocus's Redis extension.
 - Very long histories scroll sideways on the map; collapsing quiet stretches of a line is not implemented yet.
 - PDF tables come out as run-together text, and scanned PDFs (no text layer) are reported, not OCR'd.
 - Only the visible branch of a ChatGPT conversation is imported. Alternate versions are counted, not stored.

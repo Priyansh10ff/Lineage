@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumb, KindSign } from '@/components/Bits';
 import { DocView, outline } from '@/components/DocView';
 import { Header } from '@/components/Header';
+import { EditingNow } from '@/components/live/Peers';
 import { currentUser, getWorkspace, param, pickBranch } from '@/lib/data';
 import { KIND_LABEL, qs, relativeTime, short, shortDate, truncate } from '@/lib/format';
 import { fileHref } from '@/lib/workspace';
@@ -91,6 +92,10 @@ export default async function FilePage({ params, searchParams }: Props) {
           })}
         </div>
       </div>
+
+      {doc.kind === 'prose' && isLatest && (
+        <EditingNow path={path} branch={branch} href={`/w/${slug}/edit${qs({ b: bq, path })}`} className="mx-6 mt-4 md:mx-10" />
+      )}
 
       {!isLatest && (
         <div className="mx-6 mt-4 flex flex-wrap items-center gap-3 rounded bg-warn-bg px-4 py-2.5 md:mx-10">

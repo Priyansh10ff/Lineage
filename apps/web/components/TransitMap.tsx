@@ -2,6 +2,7 @@ import type { BranchGraph, GraphEdge, GraphNode } from '@lineage/core';
 import Link from 'next/link';
 import { short, truncate } from '@/lib/format';
 import { isAgentBranch, laneColor } from '@/lib/lanes';
+import { LanePeers } from './live/Peers';
 import { ScrollToEnd } from './ScrollToEnd';
 
 const COL = 136;
@@ -161,6 +162,7 @@ export function LineLegend({ graph }: { graph: BranchGraph }) {
           />
           <span className="font-semibold">{l.name}</span>
           {l.status === 'merged' && <span className="text-muted">(merged{l.exists ? '' : ', deleted'})</span>}
+          {l.exists && <LanePeers branch={l.name} />}
         </li>
       ))}
     </ul>

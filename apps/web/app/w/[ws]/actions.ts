@@ -5,7 +5,9 @@ import {
   NothingToCommitError,
   RefConflictError,
   UnresolvedConflictsError,
+  mergeDocs,
   parseProse,
+  renderDoc,
   type ConflictChoice,
   type Doc,
   type Unit,
@@ -72,6 +74,104 @@ export async function saveDocument(form: FormData): Promise<void> {
   }
   revalidatePath(`/w/${slug}`);
   redirect(fileHref(slug, path, qs({ b: b(branch) })));
+}
+
+// ------------------------------------------------------------------ live drafts
+
+export type DraftCommitResult =
+  | {
+      ok: true;
+      head: string;
+      branch: string;
+      /** Nothing differed from the branch. */
+      unchanged?: boolean;
+      /** The draft should now read this: the merged text that was committed, or (for a new line) the original branch's text. */
+      adoptText?: string;
+      /** Set when the draft went onto a new line. */
+      newLine?: string;
+    }
+  | { ok: false; error: string; conflict?: boolean };
+
+export interface DraftCommitInput {
+  ws: string;
+  branch: string;
+  path: string;
+  text: string;
+  /** Commit the draft was last in sync with. */
+  base: string;
+  message: string;
+  /** Put the draft on a new line from `base` instead of merging into `branch`. */
+  asNewLine?: boolean;
+}
+
+const validPath = (p: string) => !!p && !p.startsWith('/') && !p.split('/').some((s) => !s || s === '.' || s === '..');
+
+/**
+ * Commit a shared draft. If the branch moved since the draft's base, the draft is merged with
+ * the new head (paragraph and sentence level); a real conflict is reported instead, and the
+ * caller can put the draft on its own line to resolve it on the merge page.
+ */
+export async function commitDraft(input: DraftCommitInput): Promise<DraftCommitResult> {
+  const ws = await registry.get(input.ws);
+  if (!ws) return { ok: false, error: 'Workspace not found.' };
+  const path = input.path.replace(/^\/+/, '');
+  if (!validPath(path)) return { ok: false, error: 'Give the file a path, e.g. docs/notes.md' };
+  const author = asAuthor(await currentUser());
+  const message = input.message.trim() || `Edit ${path}`;
+  const ours = parseProse(input.text);
+
+  try {
+    if (input.asNewLine) {
+      const stem = path.split('/').pop()!.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'draft';
+      const branches = await ws.repo.branches();
+      let name = `${author.id}/${stem}`;
+      for (let i = 2; name in branches; i++) name = `${author.id}/${stem}-${i}`;
+      await ws.repo.createBranch(name, input.base);
+      const head = await ws.repo.commit({ branch: name, author, message, changes: { [path]: ours } });
+      // The shared draft goes back to what the original line says; the edits live on the new line.
+      const original = (await ws.repo.branches())[input.branch];
+      const back = original ? await ws.repo.readDoc(original, path) : undefined;
+      revalidatePath(`/w/${input.ws}`);
+      return { ok: true, head, branch: input.branch, newLine: name, ...(back ? { adoptText: renderDoc(back) } : {}) };
+    }
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const head = (await ws.repo.branches())[input.branch];
+      if (!head) return { ok: false, error: `The ${input.branch} line no longer exists.` };
+      const theirs = (await ws.repo.readDoc(head, path)) ?? null;
+      if (theirs && theirs.kind !== 'prose') return { ok: false, error: `${path} is not a document you can edit here.` };
+
+      let doc = ours;
+      let adoptText: string | undefined;
+      if (head !== input.base) {
+        const baseDoc = (await ws.repo.readDoc(input.base, path).catch(() => undefined)) ?? null;
+        const merged = mergeDocs(baseDoc, ours, theirs);
+        if (merged.status === 'conflict') {
+          return {
+            ok: false,
+            conflict: true,
+            error: `Your edits and the latest commit on ${input.branch} change the same paragraph.`,
+          };
+        }
+        if (!merged.doc) return { ok: false, error: `${path} was removed on ${input.branch} since this draft started.` };
+        doc = merged.doc;
+        adoptText = renderDoc(doc);
+      }
+      try {
+        const next = await ws.repo.commit({ branch: input.branch, author, message, changes: { [path]: doc }, expectedHead: head });
+        revalidatePath(`/w/${input.ws}`);
+        return { ok: true, head: next, branch: input.branch, ...(adoptText !== undefined ? { adoptText } : {}) };
+      } catch (e) {
+        if (e instanceof NothingToCommitError) return { ok: true, head, branch: input.branch, unchanged: true, ...(adoptText !== undefined ? { adoptText } : {}) };
+        // Someone committed between our read and write: merge again against the new head.
+        if (e instanceof RefConflictError) continue;
+        throw e;
+      }
+    }
+    return { ok: false, error: `${input.branch} is changing quickly right now. Try again in a moment.` };
+  } catch (e) {
+    return { ok: false, error: e instanceof LineageError ? e.message : (e as Error).message };
+  }
 }
 
 export async function deleteFile(form: FormData): Promise<void> {

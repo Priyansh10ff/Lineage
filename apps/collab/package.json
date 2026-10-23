@@ -1,0 +1,35 @@
+{
+  "name": "@lineage/collab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lineage's collaboration server: live co-editing of drafts (Yjs over Hocuspocus), presence, and branch updates pushed to every open tab.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hocuspocus/server": "4.7.1",
+    "@lineage/core": "workspace:*",
+    "@lineage/realtime": "workspace:*",
+    "@lineage/store-fs": "workspace:*",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@hocuspocus/provider": "4.7.1",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0",
+    "ws": "8.22.0"
+  }
+}
